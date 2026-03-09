@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula Shop - Admin Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .admin-container {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 2rem;
+            background: var(--bg-card);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--primary);
+            border-radius: 24px;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .back-link {
+            color: var(--primary-light);
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="admin-container">
+            <div class="admin-header">
+                <h2 class="section-title">Admin Dashboard</h2>
+                <a href="index.html" class="back-link">← Back to Shop</a>
+            </div>
+
+            <div class="admin-controls-grid">
+                <div class="admin-card">
+                    <h3>Wallet Control</h3>
+                    <div class="admin-form-group">
+                        <label>Current Token Balance</label>
+                        <input type="number" id="admin-set-balance" value="500">
+                        <button onclick="adminSetBalance()">Update Balance</button>
+                    </div>
+                </div>
+                <div class="admin-card">
+                    <h3>Add New Item</h3>
+                    <div class="admin-form-group">
+                        <input type="text" id="new-item-name" placeholder="Item Name">
+                        <input type="text" id="new-item-desc" placeholder="Description">
+                        <input type="number" id="new-item-price" placeholder="Price">
+                        <input type="text" id="new-item-image" placeholder="Image URL (e.g. assets/...)">
+                        <button onclick="adminAddItem()">Create Item</button>
+                    </div>
+                </div>
+                <div class="admin-card" style="grid-column: 1 / -1;">
+                    <h3>Manage Shop Items</h3>
+                    <div id="admin-item-list" class="admin-item-list">
+                        <!-- Items will be injected here -->
+                    </div>
+                </div>
+                <div class="admin-card" style="grid-column: 1 / -1;">
+                    <h3>Reset Shop</h3>
+                    <button onclick="adminResetAll()" style="background: #ff4d4d; width: 100%;">Reset All Data (Clear
+                        Inventory &
+                        Custom Items)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification">Action completed successfully!</div>
+
+    <script src="admin.js"></script>
+</body>
+
+</html>

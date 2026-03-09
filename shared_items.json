@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "name": "Cyber Pulse Blade",
+    "description": "A high-frequency vibration blade infused with cosmic energy. Deals massive damage to digital constructs.",
+    "price": 150,
+    "image": "assets/cyber_sword.png"
+  },
+  {
+    "id": 2,
+    "name": "Aegis Hex-Shield",
+    "description": "Deployable hexagonal barrier that absorbs incoming projectile energy and converts it to heat.",
+    "price": 120,
+    "image": "assets/energy_shield.png"
+  },
+  {
+    "id": 3,
+    "name": "Singularity Core",
+    "description": "A contained miniature black hole that provides endless power to advanced tech modules.",
+    "price": 300,
+    "image": "assets/power_core.png"
+  },
+  {
+    "id": 1773097795192,
+    "name": "bannana",
+    "description": "bananaing",
+    "price": 10,
+    "image": "https://via.placeholder.com/300?text=Item"
+  }
+]
