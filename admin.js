@@ -1,26 +1,4 @@
-const defaultItems = [
-    {
-        id: 1,
-        name: "Cyber Pulse Blade",
-        description: "A high-frequency vibration blade infused with cosmic energy. Deals massive damage to digital constructs.",
-        price: 150,
-        image: "assets/cyber_sword.png"
-    },
-    {
-        id: 2,
-        name: "Aegis Hex-Shield",
-        description: "Deployable hexagonal barrier that absorbs incoming projectile energy and converts it to heat.",
-        price: 120,
-        image: "assets/energy_shield.png"
-    },
-    {
-        id: 3,
-        name: "Singularity Core",
-        description: "A contained miniature black hole that provides endless power to advanced tech modules.",
-        price: 300,
-        image: "assets/power_core.png"
-    }
-];
+const API_URL = '/api';
 
 function showNotification(message, isError = false) {
     const notification = document.getElementById('notification');
@@ -43,62 +21,60 @@ function adminSetBalance() {
     showNotification(`Balance updated to ${balance}.`);
 }
 
-function renderItemList() {
+async function renderItemList() {
     const itemList = document.getElementById('admin-item-list');
-    itemList.innerHTML = '';
+    itemList.innerHTML = '<div style="opacity: 0.5;">Loading inventory...</div>';
 
-    const customItems = JSON.parse(localStorage.getItem('nebula_custom_items')) || [];
-    const deletedIds = JSON.parse(localStorage.getItem('nebula_deleted_ids')) || [];
+    try {
+        const response = await fetch(`${API_URL}/items`);
+        const allItems = await response.json();
 
-    // Combine all current items
-    const allItems = [...defaultItems, ...customItems].filter(item => !deletedIds.includes(item.id));
+        itemList.innerHTML = '';
+        if (allItems.length === 0) {
+            itemList.innerHTML = '<div style="opacity: 0.5;">No items in shop.</div>';
+            return;
+        }
 
-    if (allItems.length === 0) {
-        itemList.innerHTML = '<div style="opacity: 0.5;">No items in shop.</div>';
-        return;
-    }
-
-    allItems.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'admin-item-row';
-        row.innerHTML = `
-            <div class="item-info">
-                <img src="${item.image}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/300?text=Item'">
-                <div>
-                    <div style="font-weight: 600;">${item.name}</div>
-                    <div style="font-size: 0.8rem; opacity: 0.7;">✦ ${item.price}</div>
+        allItems.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'admin-item-row';
+            row.innerHTML = `
+                <div class="item-info">
+                    <img src="${item.image}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/300?text=Item'">
+                    <div>
+                        <div style="font-weight: 600;">${item.name}</div>
+                        <div style="font-size: 0.8rem; opacity: 0.7;">✦ ${item.price}</div>
+                    </div>
                 </div>
-            </div>
-            <button class="delete-btn" onclick="adminDeleteItem(${item.id})">Delete</button>
-        `;
-        itemList.appendChild(row);
-    });
+                <button class="delete-btn" onclick="adminDeleteItem(${item.id})">Delete</button>
+            `;
+            itemList.appendChild(row);
+        });
+    } catch (err) {
+        itemList.innerHTML = '<div style="color: #ff4d4d;">Failed to load items. Is server running?</div>';
+    }
 }
 
-function adminDeleteItem(itemId) {
+async function adminDeleteItem(itemId) {
     if (!confirm("Are you sure you want to delete this item?")) return;
 
-    const customItems = JSON.parse(localStorage.getItem('nebula_custom_items')) || [];
-    const customIndex = customItems.findIndex(i => i.id === itemId);
+    try {
+        const response = await fetch(`${API_URL}/items/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: itemId })
+        });
 
-    if (customIndex !== -1) {
-        // It's a custom item, remove it
-        customItems.splice(customIndex, 1);
-        localStorage.setItem('nebula_custom_items', JSON.stringify(customItems));
-    } else {
-        // It's a default item, add to deleted list
-        const deletedIds = JSON.parse(localStorage.getItem('nebula_deleted_ids')) || [];
-        if (!deletedIds.includes(itemId)) {
-            deletedIds.push(itemId);
-            localStorage.setItem('nebula_deleted_ids', JSON.stringify(deletedIds));
+        if (response.ok) {
+            renderItemList();
+            showNotification("Item deleted from shop for everyone.");
         }
+    } catch (err) {
+        showNotification("Failed to delete item.", true);
     }
-
-    renderItemList();
-    showNotification("Item deleted from shop.");
 }
 
-function adminAddItem() {
+async function adminAddItem() {
     const name = document.getElementById('new-item-name').value;
     const desc = document.getElementById('new-item-desc').value;
     const price = parseInt(document.getElementById('new-item-price').value);
@@ -109,7 +85,6 @@ function adminAddItem() {
         return;
     }
 
-    const customItems = JSON.parse(localStorage.getItem('nebula_custom_items')) || [];
     const newItem = {
         id: Date.now(),
         name,
@@ -118,27 +93,33 @@ function adminAddItem() {
         image
     };
 
-    customItems.push(newItem);
-    localStorage.setItem('nebula_custom_items', JSON.stringify(customItems));
-    showNotification(`Item "${name}" added to shop.`);
+    try {
+        const response = await fetch(`${API_URL}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newItem)
+        });
 
-    // Clear inputs
-    document.getElementById('new-item-name').value = '';
-    document.getElementById('new-item-desc').value = '';
-    document.getElementById('new-item-price').value = '';
-    document.getElementById('new-item-image').value = '';
-
-    renderItemList();
+        if (response.ok) {
+            showNotification(`Item "${name}" added to shop for everyone.`);
+            document.getElementById('new-item-name').value = '';
+            document.getElementById('new-item-desc').value = '';
+            document.getElementById('new-item-price').value = '';
+            document.getElementById('new-item-image').value = '';
+            renderItemList();
+        }
+    } catch (err) {
+        showNotification("Failed to add item.", true);
+    }
 }
 
 function adminResetAll() {
-    if (confirm("Are you sure? This will reset your balance, inventory, custom items, and deletion history.")) {
+    if (confirm("Are you sure? This will reset your personal data. Shared items remain on server.")) {
         localStorage.clear();
         location.reload();
     }
 }
 
-// Load current balance into input on start
 document.addEventListener('DOMContentLoaded', () => {
     const currentBalance = localStorage.getItem('nebula_balance') || 500;
     document.getElementById('admin-set-balance').value = currentBalance;

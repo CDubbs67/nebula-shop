@@ -1,30 +1,5 @@
-const defaultItems = [
-    {
-        id: 1,
-        name: "Cyber Pulse Blade",
-        description: "A high-frequency vibration blade infused with cosmic energy. Deals massive damage to digital constructs.",
-        price: 150,
-        image: "assets/cyber_sword.png"
-    },
-    {
-        id: 2,
-        name: "Aegis Hex-Shield",
-        description: "Deployable hexagonal barrier that absorbs incoming projectile energy and converts it to heat.",
-        price: 120,
-        image: "assets/energy_shield.png"
-    },
-    {
-        id: 3,
-        name: "Singularity Core",
-        description: "A contained miniature black hole that provides endless power to advanced tech modules.",
-        price: 300,
-        image: "assets/power_core.png"
-    }
-];
-
-let customItems = JSON.parse(localStorage.getItem('nebula_custom_items')) || [];
-let deletedIds = JSON.parse(localStorage.getItem('nebula_deleted_ids')) || [];
-let shopItems = [...defaultItems, ...customItems].filter(item => !deletedIds.includes(item.id));
+const API_URL = '/api';
+let shopItems = [];
 
 let balance = parseInt(localStorage.getItem('nebula_balance')) || 500;
 let inventory = JSON.parse(localStorage.getItem('nebula_inventory')) || [];
@@ -37,6 +12,21 @@ const notification = document.getElementById('notification');
 const adminPassInput = document.getElementById('admin-pass');
 const adminLoginBtn = document.getElementById('admin-login-btn');
 const adminLink = document.getElementById('admin-link');
+
+async function syncShopItems() {
+    try {
+        const response = await fetch(`${API_URL}/items`);
+        const remoteItems = await response.json();
+
+        // Only re-render if items have changed
+        if (JSON.stringify(remoteItems) !== JSON.stringify(shopItems)) {
+            shopItems = remoteItems;
+            renderShop();
+        }
+    } catch (err) {
+        console.error("Failed to sync shop items:", err);
+    }
+}
 
 function updateBalanceDisplay() {
     balanceDisplay.textContent = Math.floor(balance);
@@ -114,6 +104,11 @@ function returnItem(purchaseId) {
 
 function renderShop() {
     shopGrid.innerHTML = '';
+    if (shopItems.length === 0) {
+        shopGrid.innerHTML = '<div style="opacity: 0.5; grid-column: 1/-1;">Connecting to Nebula Uplink...</div>';
+        return;
+    }
+
     shopItems.forEach(item => {
         const canAfford = balance >= item.price;
         const card = document.createElement('div');
@@ -195,5 +190,9 @@ setInterval(() => {
     }
 }, 1000);
 
+// Poll for shop updates every 5 seconds
+setInterval(syncShopItems, 5000);
+
 // Initial render
 updateBalanceDisplay();
+syncShopItems();
