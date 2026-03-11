@@ -10,6 +10,15 @@ const DB_PATH = path.join(__dirname, 'db.json');
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Disable caching for local development, but allow it in production
+if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+        res.set('Cache-Control', 'no-store');
+        next();
+    });
+}
+
 app.use(express.static(__dirname));
 
 function readDB() {
@@ -51,7 +60,7 @@ app.post('/api/items/delete', (req, res) => {
     const { id } = req.body;
     const db = readDB();
 
-    const customIndex = db.shopItems.findIndex(item => item.id === id && id > 3); // Simple check for custom IDs
+    const customIndex = db.shopItems.findIndex(item => item.id === id && id > 3);
 
     if (id <= 3 || customIndex === -1) {
         // Default item or someone trying to delete by ID

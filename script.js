@@ -1,5 +1,15 @@
-const API_URL = '/api';
 let shopItems = [];
+
+async function loadShopItems() {
+    try {
+        const response = await fetch('/api/items');
+        shopItems = await response.json();
+        renderShop();
+    } catch (err) {
+        console.error("Failed to fetch items from uplink:", err);
+        shopGrid.innerHTML = '<div style="color: #ff4d4d; grid-column: 1/-1;">Critical Error: Failed to connect to Nebula Uplink.</div>';
+    }
+}
 
 let balance = parseInt(localStorage.getItem('nebula_balance')) || 500;
 let inventory = JSON.parse(localStorage.getItem('nebula_inventory')) || [];
@@ -12,21 +22,6 @@ const notification = document.getElementById('notification');
 const adminPassInput = document.getElementById('admin-pass');
 const adminLoginBtn = document.getElementById('admin-login-btn');
 const adminLink = document.getElementById('admin-link');
-
-async function syncShopItems() {
-    try {
-        const response = await fetch(`${API_URL}/items`);
-        const remoteItems = await response.json();
-
-        // Only re-render if items have changed
-        if (JSON.stringify(remoteItems) !== JSON.stringify(shopItems)) {
-            shopItems = remoteItems;
-            renderShop();
-        }
-    } catch (err) {
-        console.error("Failed to sync shop items:", err);
-    }
-}
 
 function updateBalanceDisplay() {
     balanceDisplay.textContent = Math.floor(balance);
@@ -62,26 +57,68 @@ adminLoginBtn.addEventListener('click', () => {
     }
 });
 
+let pendingPurchaseItemId = null;
+
+const simpleNamePrompt = document.getElementById('simple-name-prompt');
+const simpleNameInput = document.getElementById('simple-name-input');
+const simpleNameSubmit = document.getElementById('simple-name-submit');
+const simpleNameCancel = document.getElementById('simple-name-cancel');
+
+simpleNameSubmit.addEventListener('click', () => {
+    const buyerName = simpleNameInput.value.trim();
+    if (!buyerName) {
+        showNotification("Name is required to purchase.", true);
+        return;
+    }
+
+    simpleNamePrompt.style.display = 'none';
+    finalizePurchase(pendingPurchaseItemId, buyerName);
+});
+
+simpleNameCancel.addEventListener('click', () => {
+    simpleNamePrompt.style.display = 'none';
+    pendingPurchaseItemId = null;
+    console.log("Transaction aborted by user.");
+});
+
 function buyItem(itemId) {
+    console.log("Transaction initiated for item ID:", itemId);
     const item = shopItems.find(i => i.id === itemId);
-    if (!item) return;
+
+    if (!item) {
+        console.error("Item not found in shop index!");
+        return;
+    }
 
     if (balance >= item.price) {
-        balance -= item.price;
-        // Add to inventory with a unique instance ID and timestamp
-        const purchase = {
-            ...item,
-            purchaseId: Date.now() + Math.random(),
-            purchaseTime: Date.now() // Record purchase time
-        };
-        inventory.push(purchase);
-        updateBalanceDisplay();
-        showNotification(`Acquired: ${item.name}!`);
+        console.log("Sufficient balance. Showing HTML identity prompt...");
+        pendingPurchaseItemId = itemId;
+        simpleNameInput.value = "";
+        simpleNamePrompt.style.display = 'flex';
+        simpleNameInput.focus();
     } else {
         showNotification("Insufficient tokens!", true);
+        console.warn("Transaction failed: Insufficient tokens.");
     }
 }
 
+function finalizePurchase(itemId, buyerName) {
+    const item = shopItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    balance -= item.price;
+    const purchase = {
+        ...item,
+        buyerName: buyerName,
+        purchaseId: Date.now() + Math.random(),
+        purchaseTime: Date.now()
+    };
+
+    inventory.push(purchase);
+    updateBalanceDisplay();
+    showNotification(`Acquired: ${item.name}!`);
+    console.log("Transaction complete. Owner registered:", buyerName);
+}
 function returnItem(purchaseId) {
     const index = inventory.findIndex(item => item.purchaseId === purchaseId);
     if (index === -1) return;
@@ -104,11 +141,6 @@ function returnItem(purchaseId) {
 
 function renderShop() {
     shopGrid.innerHTML = '';
-    if (shopItems.length === 0) {
-        shopGrid.innerHTML = '<div style="opacity: 0.5; grid-column: 1/-1;">Connecting to Nebula Uplink...</div>';
-        return;
-    }
-
     shopItems.forEach(item => {
         const canAfford = balance >= item.price;
         const card = document.createElement('div');
@@ -144,18 +176,7 @@ function renderInventory() {
         return;
     }
 
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-
     inventory.forEach(item => {
-        const timeElapsed = now - (item.purchaseTime || now);
-        const canReturn = timeElapsed < twentyFourHours;
-
-        const timeLeftMs = Math.max(0, twentyFourHours - timeElapsed);
-        const hoursLeft = Math.floor(timeLeftMs / (1000 * 60 * 60));
-        const minsLeft = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
-        const secsLeft = Math.floor((timeLeftMs % (1000 * 60)) / 1000);
-
         const card = document.createElement('div');
         card.className = 'item-card';
         card.innerHTML = `
@@ -164,35 +185,67 @@ function renderInventory() {
             </div>
             <div class="item-info">
                 <div class="item-name">${item.name}</div>
-                ${canReturn ?
-                `<div class="item-desc" style="color: var(--primary-light)">Return expires in: ${hoursLeft}h ${minsLeft}m ${secsLeft}s</div>` :
-                `<div class="item-desc" style="color: #666">Owner verified. Non-returnable.</div>`
-            }
+                <!-- The timer script will populate this text -->
+                <div class="item-desc countdown-timer" id="timer-${item.purchaseId}" style="color: var(--primary-light)"></div>
             </div>
             <div class="item-footer">
                 <div class="item-price">
                     <span>✦</span> ${item.price}
                 </div>
-                ${canReturn ?
-                `<button class="return-btn" onclick="returnItem(${item.purchaseId})">Return</button>` :
-                `<button class="return-btn" disabled style="opacity: 0.3; cursor: not-allowed;">Permanent</button>`
-            }
+                <!-- The return button state is also managed by the timer script if it expires -->
+                <button class="return-btn" id="return-btn-${item.purchaseId}" onclick="returnItem(${item.purchaseId})">Return</button>
             </div>
         `;
         inventoryGrid.appendChild(card);
     });
+
+    // Initial call to set the times immediately
+    updateCountdowns();
 }
 
-// Update countdowns every second
+function updateCountdowns() {
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    inventory.forEach(item => {
+        const timeElapsed = now - (item.purchaseTime || now);
+        const canReturn = timeElapsed < twentyFourHours;
+        const timerElement = document.getElementById(`timer-${item.purchaseId}`);
+        const returnBtn = document.getElementById(`return-btn-${item.purchaseId}`);
+
+        if (!timerElement || !returnBtn) return;
+
+        if (canReturn) {
+            const timeLeftMs = Math.max(0, twentyFourHours - timeElapsed);
+            const hoursLeft = Math.floor(timeLeftMs / (1000 * 60 * 60));
+            const minsLeft = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+            const secsLeft = Math.floor((timeLeftMs % (1000 * 60)) / 1000);
+
+            timerElement.textContent = `Return expires in: ${hoursLeft}h ${minsLeft}m ${secsLeft}s`;
+            timerElement.style.color = "var(--primary-light)";
+            returnBtn.disabled = false;
+            returnBtn.style.opacity = "1";
+            returnBtn.style.cursor = "pointer";
+            returnBtn.textContent = "Return";
+        } else {
+            timerElement.textContent = "Owner verified. Non-returnable.";
+            timerElement.style.color = "#666";
+            returnBtn.disabled = true;
+            returnBtn.style.opacity = "0.3";
+            returnBtn.style.cursor = "not-allowed";
+            returnBtn.textContent = "Permanent";
+        }
+    });
+}
+
+// Update countdown text every second locally
 setInterval(() => {
     if (inventory.length > 0) {
-        renderInventory();
+        updateCountdowns();
     }
 }, 1000);
 
-// Poll for shop updates every 5 seconds
-setInterval(syncShopItems, 5000);
-
 // Initial render
 updateBalanceDisplay();
-syncShopItems();
+loadShopItems();
+

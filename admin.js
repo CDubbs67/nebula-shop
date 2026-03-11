@@ -40,7 +40,7 @@ async function renderItemList() {
             row.className = 'admin-item-row';
             row.innerHTML = `
                 <div class="item-info">
-                    <img src="${item.image}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/300?text=Item'">
+                    <img src="${item.image}" alt="${item.name}" onerror="this.src='assets/power_core.png'">
                     <div>
                         <div style="font-weight: 600;">${item.name}</div>
                         <div style="font-size: 0.8rem; opacity: 0.7;">✦ ${item.price}</div>
@@ -55,14 +55,21 @@ async function renderItemList() {
     }
 }
 
-async function adminDeleteItem(itemId) {
-    if (!confirm("Are you sure you want to delete this item?")) return;
+let pendingDeleteId = null;
+
+const confirmPrompt = document.getElementById('simple-confirm-prompt');
+const confirmSubmit = document.getElementById('simple-confirm-submit');
+const confirmCancel = document.getElementById('simple-confirm-cancel');
+
+confirmSubmit.addEventListener('click', async () => {
+    confirmPrompt.style.display = 'none';
+    if (!pendingDeleteId) return;
 
     try {
         const response = await fetch(`${API_URL}/items/delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: itemId })
+            body: JSON.stringify({ id: pendingDeleteId })
         });
 
         if (response.ok) {
@@ -72,13 +79,24 @@ async function adminDeleteItem(itemId) {
     } catch (err) {
         showNotification("Failed to delete item.", true);
     }
+    pendingDeleteId = null;
+});
+
+confirmCancel.addEventListener('click', () => {
+    confirmPrompt.style.display = 'none';
+    pendingDeleteId = null;
+});
+
+function adminDeleteItem(itemId) {
+    pendingDeleteId = itemId;
+    confirmPrompt.style.display = 'flex';
 }
 
 async function adminAddItem() {
     const name = document.getElementById('new-item-name').value;
     const desc = document.getElementById('new-item-desc').value;
     const price = parseInt(document.getElementById('new-item-price').value);
-    const image = document.getElementById('new-item-image').value || 'https://via.placeholder.com/300?text=Item';
+    const image = document.getElementById('new-item-image').value || 'assets/power_core.png';
 
     if (!name || isNaN(price)) {
         showNotification("Please enter name and price.", true);
